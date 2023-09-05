@@ -1,0 +1,14 @@
+name: cs598-psl-env
+channels:
+  - defaults
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3
+  - jupyter 
+  - configparser
+  - requests
+  - pandas 
+  - numpy
+  - scipy
+  - matplotlib
