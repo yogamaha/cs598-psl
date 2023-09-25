@@ -1,0 +1,500 @@
+---
+title: "(PSL) Coding Assignment 2"
+output:
+  html_notebook:
+    theme: readable
+    toc: TRUE
+    toc_float: TRUE
+---
+
+## Part I: Implement Lasso
+
+### One-variable Lasso
+
+First write a function `one_var_lasso` that takes the following inputs:
+
+$$\mathbf{v}=(v_1, \dots, v_n)^t, \quad \mathbf{z} = (z_1, \dots, z_n)^t, \quad  \lambda > 0$$
+and solves the following one-variable Lasso problem:
+$$ 
+   \min_{b} \frac{1}{2n} \| \mathbf{v} - b \cdot \mathbf{z}\|^2 + \lambda  | b |.
+$$
+Check the [[derivation](https://liangfgithub.github.io/Coding/OneVarLasso.pdf)] for one-variable lasso.
+
+```{r}
+one_var_lasso = function(r, z, lam) {
+ 
+  ##############################
+  # YOUR CODE
+  ##############################
+  a = sum(r*z) / sum(z^2)
+  neta = (2 * length(r) * lam ) / sum(z^2)
+
+  #one_beta = sign(a) * (abs(a) - (neta / 2))
+
+  if (a > neta/2){
+    one_beta = a - (neta/2)
+    return(one_beta)
+  }
+  if (abs(a) <= neta/2){
+    one_beta = 0
+    return(one_beta)
+  }
+  if (a < -neta/2){
+    one_beta = a + (neta/2)
+    return(one_beta)
+  }
+}
+```
+
+### The CD Algorithm
+
+Next write your own function `MyLasso` to implement the **Coordinate Descent (CD)** algorithm by repeatedly calling `one_var_lasso`. 
+
+
+Your function should output estimated Lasso coefficients similar to the ones returned by R with option __`standardized = TRUE`__. 
+
+Your function may look like the following. 
+```{r}
+MyLasso = function(X, y, lam.seq, maxit = 100) {
+    
+    # Input
+    # X: n-by-p design matrix without the intercept 
+    # y: n-by-1 response vector 
+    # lam.seq: sequence of lambda values (arranged from large to small)
+    # maxit: number of updates for each lambda 
+    
+    # Output
+    # B: a (p+1)-by-length(lam.seq) coefficient matrix 
+    #    with the first row being the intercept sequence
+
+    n = length(y)
+    p = dim(X)[2]
+    nlam = length(lam.seq)
+    B = matrix(0, ncol = nlam, nrow = (p+1))
+    rownames(B) = c("Intercept", colnames(X)) 
+
+    ##############################
+    # YOUR CODE: 
+    # (1) new.X = centered & scaled X; 
+    # (2) record the centers and scales used in (1) 
+    ##############################
+    
+    new.X  = scale(X, center = TRUE, scale = TRUE)   #1
+    center = attr(new.X,"scaled:center")     #2
+    scale  = attr(new.X,"scaled:scale")      #2
+  
+    # Initialize coef vector b and residual vector r
+    b = rep(0, p)
+    r = y
+    B[1,] = mean(y)  # INIT WITH MEAN OF RESPONSE
+    
+    # Triple nested loop
+    for (m in 1:nlam) {
+      for (step in 1:maxit) {
+        for (j in 1:p) {
+          r = r + (new.X[, j] * b[j])
+          b[j] = one_var_lasso(r, new.X[, j], lam.seq[m])
+          r = r - new.X[, j] * b[j]
+        }
+      }
+      B[-1, m] = b
+    }
+    
+   
+    ##############################
+    # YOUR CODE:
+    # scale back the coefficients;
+    # update the intercepts stored in B[1, ]
+    ##############################
+    
+    # EXTRACT THE NON INTERCEPT BETA COEFFICIENTS
+    B_non_int = B[-1,]
+  
+    # SCALE BACK THE BETAs
+    B_non_back_scale  = sweep(B_non_int, MARGIN=1, STATS=scale, FUN='/')
+    
+    # BACK CENTER THE MEANS FOR THE INTERCEPT
+    B_non_back_center = sweep(B_non_back_scale, MARGIN=1, STATS=center, FUN='*')
+    
+    # update intercept beta_0
+    b0_mod = colSums(B_non_back_center)
+    B[1,] = B[1,] - b0_mod
+    
+    #UPDATE THE SCALED BACK COEFFICIENTS    
+    B[-1,] = B_non_back_scale
+    
+    return(B)
+}
+```
+
+### Test Your Function
+
+Test your `MyLasso` function on data set `Coding2_Data.csv` with the following lambda sequence. The data set `Coding2_Data.csv` can be downloaded [[Here](https://liangfgithub.github.io/F22/Coding2_Data.csv)]; it has 13 predictors, `V1` to `V13`, and one response vector `Y`.
+
+```{r}
+myData = read.csv("Coding2_Data.csv")
+X = as.matrix(myData[, -14])
+y = myData$Y
+lam.seq = exp(seq(-1, -8, length.out = 80))
+myout = MyLasso(X, y, lam.seq)
+```
+
+
+* Check the accuracy of your function against the output from `glmnet`. The maximum difference between the two coefficient matrices should be <span style="color: red;">less than 0.005</span>.
+
+```{r}
+library(glmnet)
+lasso.fit = glmnet(X, y, alpha = 1, lambda = lam.seq, standardized = TRUE)
+max(abs(coef(lasso.fit) - myout))
+```
+
+* Produce a path plot for the 13 non-intercept coefficients along the lambda values in log scale.
+
+
+```{r}
+x.index = log(lam.seq)
+beta = myout[-1, ]  # beta is a 13-by-80 matrix
+matplot(x.index, t(beta),
+        xlim = c(min(x.index), max(x.index)),
+        lty = 1,
+        xlab = "Log Lambda",
+        ylab = "Coefficients",
+        type="l", 
+        lwd = 1)
+# You can add variable names to each path
+var.names = colnames(X)
+nvar = length(var.names)
+xpos = rep(min(x.index), nvar)
+ypos = beta[, ncol(beta)]
+text(xpos, ypos, var.names, cex=0.5, pos=2)
+```
+![](../../f22/Coding/coding2_mylasso_plot.png)
+
+Your plot should look almost the same as the plot from `glmnet`
+```{r}
+plot(lasso.fit, xvar = "lambda")
+```
+![](../../f22/Coding/coding2_glmnet_plot.png)
+
+## Part II: Simulation Study
+
+## CASE I:
+
+Load libraries and data. 
+
+```{r}
+library(glmnet) 
+library(pls)
+myData = read.csv("Coding2_Data2.csv", header = TRUE)
+```  
+
+Some algorithms need the matrix/vector input (instead of a data frame)
+```{r}
+X = data.matrix(myData[,-1])  
+Y = myData[,1] 
+```
+
+We will repeat the simulation 50 times. In each iteration, randomly split the data into two parts, 75% for training and 25% for testing. You can write a loop with 50 iterations, and in each iteration, split the data and run the seven procedures (six procedures for case II).
+
+Or you can save the row IDs for the 50 test data sets, then write a separate loop for each method. Using `all.test.id` (produced below), you can ensure that you use the same training/test split for each procedure.
+
+```{r}
+T = 50
+n = length(Y)
+ntest = round(n * 0.25)  # test set size
+ntrain = n - ntest  # training set size
+all.test.id = matrix(0, ntest, T)  # 
+for(t in 1:T){
+  all.test.id[, t] = sample(1:n, ntest)
+}
+#save(all.test.id, file="alltestID.RData")
+```
+
+Next, let's try the seven procedures using the first split. 
+
+* __Full Model__
+
+```{r}
+#test.id = all.test.id[, 1] 
+```
+
+
+```{r}
+#test.id = all.test.id[, 1] 
+linear_fit = function(test.id){
+full.model = lm(Y ~ ., data = myData[-test.id, ])
+Ytest.pred = predict(full.model, newdata = myData[test.id, ])
+mean((myData$Y[test.id] - Ytest.pred)^2)
+}
+
+#linear_fit(all.test.id[,1])
+```
+
+* __Ridge Regression__
+
+The default lambda sequence for Case I might be too large. Consider providing a sequence that covers smaller lambda values as `mylasso.lambda.seq` below.
+
+```{r}
+# parallel computing
+
+ridge_fit = function(test.id){
+mylasso.lambda.seq = exp(seq(-10, 1, length.out = 100))
+cv.out = cv.glmnet(X[-test.id, ], Y[-test.id], alpha = 0, 
+                   lambda = mylasso.lambda.seq)
+
+best.lam = cv.out$lambda.min
+Ytest.pred = predict(cv.out, s = best.lam, newx = X[test.id, ])
+mean((Y[test.id] - Ytest.pred)^2)
+}
+#ridge_fit(all.test.id[,1])
+```
+
+
+* __Lasso__ 
+```{r}
+
+
+# parallel computing
+
+lasso_fit = function(test.id){
+cv.out = cv.glmnet(X[-test.id, ], Y[-test.id], alpha = 1)
+best.lam = cv.out$lambda.min
+Ytest.pred = predict(cv.out, s = best.lam, newx = X[test.id, ])
+a = mean((Y[test.id] - Ytest.pred)^2)
+
+best.lam = cv.out$lambda.1se
+Ytest.pred = predict(cv.out, s = best.lam, newx = X[test.id, ])
+b = mean((Y[test.id] - Ytest.pred)^2)
+
+# Lasso refit
+mylasso.coef = predict(cv.out, s = best.lam, type = "coefficients")
+var.sel = row.names(mylasso.coef)[which(mylasso.coef != 0)[-1]]
+mylasso.refit = lm(Y ~ ., myData[-test.id, c("Y", var.sel)])
+Ytest.pred = predict(mylasso.refit, newdata = myData[test.id, ])
+c = mean((Ytest.pred - Y[test.id])^2)
+
+c(a,b,c)
+}
+
+#lasso_fit(all.test.id[,1])
+
+```
+
+```{r}
+#plot(cv.out)
+```
+
+
+* __PCR__
+
+The principle components regression command, `pcr`, returns both the CV errors and the adjusted CV errors. For the definition of adjusted CV used in `pcr`, check Sec 2.4 of [this paper](https://mevik.net/work/publications/MSEP_estimates.pdf); we use CV error below. 
+
+The default `pcr` does not scale the input features. Try `pcr(...., scale=TRUE)`
+
+```{r}
+pcr_fit = function(test.id){
+mypcr = pcr(Y ~ ., data= myData[-test.id, ], validation="CV", scale=TRUE)
+CVerr = RMSEP(mypcr)$val[1, , ]
+adjCVerr = RMSEP(mypcr)$val[2, , ]
+best.ncomp = which.min(CVerr) - 1 
+
+if (best.ncomp==0) {
+    Ytest.pred = mean(myData$Y[-test.id])
+  } else {
+    Ytest.pred = predict(mypcr, myData[test.id,], ncomp=best.ncomp)
+  }
+mean((Ytest.pred - myData$Y[test.id])^2)
+}
+
+```
+
+Simulating 50 times
+
+```{r}
+mpse_df = data.frame(linear = numeric(0), ridge = numeric(0),
+                      lasso.min = numeric(0), lasso.1se=numeric(0),
+                      L.refit = numeric(0), PCR = numeric(0)) 
+
+for (i in 1:T){
+
+mpse_df = rbind(mpse_df, 
+              c(linear_fit(all.test.id[,i]),
+                  ridge_fit(all.test.id[,i]),
+                  lasso_fit(all.test.id[,i]),
+                  pcr_fit(all.test.id[,i])
+                   ))
+
+}
+
+colnames(mpse_df) = c("linear", "ridge", "lasso.min",
+                       "lasso.1se", "L.Refit", "PCR")
+
+
+```
+
+
+Note that we have to subtract one from `which.min(CVerr)` since the 1st column of the CV table corresponds to the CV error with zero component (i.e., the model with just the intercept) and the k-th column of the CV table corresponds to (k-1) components.
+
+The prediction function does not seem to work when `best.ncomp = 0`. So we have to handle that case separately.
+
+
+## b
+
+
+```{r}
+
+#means = apply(mpse_df, MARGIN = 2, FUN = mean)
+
+boxplot(mpse_df, col = "grey", pch=20)
+stripchart(mpse_df, vertical = TRUE, method = "jitter",
+           pch = 16,
+           col = c(2,3,4,5,6,7),
+           main="Multiple stripcharts for comparision",
+            xlab="Regression Methods",
+            ylab="MSPE",
+           add=TRUE)
+#points(means, 1:6, col = "red", pch = 7, cex = 1.5, bg = 2, lwd = 2)
+```
+
+– Which procedure or procedures yield the best performance in terms of MSPE?
+
+Below 2 procedures yield the best performance (**for this dataset**) as they have the lowest mean MSPE from the 50 simulation runs and averaging them.
+ridge
+lasso.min
+
+– Conversely, which procedure or procedures show the poorest performance?
+remaining 4 procedures are all equally performant in the sense the mean of the MPSE is negligible. It can't be said to be poorest but slighly less performant compared to the other 2 procedures
+
+
+
+– In the context of Lasso regression, which procedure, Lasso.min or Lasso.1se, yields a better MSPE?
+
+
+
+– Is refitting advantageous in this case? In other words, does L.Refit outperform Lasso.1se?
+There is not any difference just by seeing the mean MPSE between the 2 procedures
+
+– Is variable selection or shrinkage warranted for this particular dataset? To clarify, do you find the performance of the Full model to be comparable to, or divergent from, the best-performing procedure among the other five?
+
+not warranted. there is not much difference in performance
+
+```{r}
+plot(mpse_df2$linear, type='b')
+```
+
+
+```{r}
+#summary(mpse_df2)
+means = apply(mpse_df, MARGIN = 2, FUN = mean)
+medians = apply(mpse_df, MARGIN = 2, FUN = median)
+mins = apply(mpse_df, MARGIN = 2, FUN = min)
+maxs = apply(mpse_df, MARGIN = 2, FUN = max)
+
+
+results = data.frame(mean = means, median = medians,
+                     min = mins, max = maxs)
+knitr::kable(results)
+
+```
+
+
+## CASE II:
+
+Load libraries and data. 
+
+```{r}
+myData = read.csv("Coding2_Data3.csv", header = TRUE)
+```  
+
+Some algorithms need the matrix/vector input (instead of a data frame)
+```{r}
+X = data.matrix(myData[,-1])  
+Y = myData[,1] 
+```
+
+create indexes for the test data
+
+```{r}
+T = 50
+n = length(Y)
+ntest = round(n * 0.25)  # test set size
+ntrain = n - ntest  # training set size
+all.test.id = matrix(0, ntest, T)  # 
+for(t in 1:T){
+  all.test.id[, t] = sample(1:n, ntest)
+}
+#save(all.test.id, file="alltestID.RData")
+```
+
+
+
+Simulating 50 times
+
+```{r warning=FALSE}
+
+mpse_df3 = data.frame(linear = numeric(0), ridge = numeric(0),
+                      lasso.min = numeric(0), lasso.1se=numeric(0),
+                      L.refit = numeric(0), PCR = numeric(0)) 
+                      
+for (i in 1:T){
+  mpse_df3 = rbind(mpse_df3, 
+              c(linear_fit(all.test.id[,i]),
+                  ridge_fit(all.test.id[,i]),
+                  lasso_fit(all.test.id[,i]),
+                  pcr_fit(all.test.id[,i])
+                   ))
+
+}
+
+colnames(mpse_df3) = c("linear", "ridge", "lasso.min",
+                       "lasso.1se", "L.Refit", "PCR")
+
+
+
+```
+
+graphical Plot 
+
+```{r}
+#only linear regr
+
+boxplot(mpse_df3[,1], col = "grey", pch=20)
+stripchart(mpse_df3[,1], vertical = TRUE, method = "jitter",
+           pch = 16,
+           col = c(2,3,4,5,6,7),
+           main="Multiple stripcharts for comparision",
+            xlab="Regression Methods",
+            ylab="MSPE",
+           add=TRUE)
+```
+
+
+```{r}
+
+# plot without the 
+
+boxplot(mpse_df3[,-1], col = "grey", pch=20)
+stripchart(mpse_df3[,-1], vertical = TRUE, method = "jitter",
+           pch = 16,
+           col = c(2,3,4,5,6,7),
+           main="Multiple stripcharts for comparision",
+            xlab="Regression Methods",
+            ylab="MSPE",
+           add=TRUE)
+
+```
+
+
+```{r}
+means = apply(mpse_df3, MARGIN = 2, FUN = mean)
+medians = apply(mpse_df3, MARGIN = 2, FUN = median)
+mins = apply(mpse_df3, MARGIN = 2, FUN = min)
+maxs = apply(mpse_df3, MARGIN = 2, FUN = max)
+
+
+results3 = data.frame(mean = means, median = medians,
+                     min = mins, max = maxs)
+knitr::kable(results3)
+
+```
+
