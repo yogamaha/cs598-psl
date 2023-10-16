@@ -5,6 +5,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3
+  - pip
   - jupyter 
   - configparser
   - requests
@@ -14,5 +15,10 @@ dependencies:
   - matplotlib
   - scikit-learn
   - seaborn
-  # - pip:
-  #   - ISLP
+  - statsmodels
+  - tqdm
+  - threadpoolctl=3
+  - pip:
+    - ISLP
+    - scikit-fda
+    - scikit-misc
