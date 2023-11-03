@@ -1,0 +1,57 @@
+1. 
+From the user's usage patterns on a website, identify different user groups.
+Given a database of information about your users, automatically group them into different market segments.
+
+2.
+When clustering, we want to put two dissimilar data objects into the same cluster.
+We must know the number of clusters a priori for all clustering algorithms.
+
+3.
+• To avoid K-means getting stuck at a bad local optima, we should try using multiple randon initialization.
+• The centroids in the K-means algorithm may not be any observed data points.
+• The K-means algorithm can converge to different final clustering results, depending on initial choice of representatives.
+
+4.
+Update the cluster centroids based the current assignment
+Assign each point to its nearest cluster
+
+5. Evaluate the objective function at the 10 clustering results and pick the one that gives rise to the smallest value of the objective function
+6. a dendrogram showing how close things are to each other
+
+7. 2
+8. 4
+9. 0.5
+10. 4
+11. 5
+12. 3
+
+13. (1,2,3) and (4)
+14. (1,2) and (3, 4)
+
+15. 9
+16. 50
+17. 2
+18. 15
+19. 2
+20. 15
+21. 19
+22. 54
+23. 19
+24. 54
+25. 1
+26. 6
+
+
+
+27. 0.6
+28. 0.4
+29. 29
+30. 14
+
+31.
+The estimates returned by the EM algorithm could be a local optimum.
+We can use BIC to select the number of components K.
+
+32.
+We can represent the i-th document by a K-dim vector: (ail, ..., air), which indicates that the words in the i-th document can be modeled as a mixture of K topics with aik's being the mixing weights.
+Words in the same document can be generated from different multinomail distributions depending on the topic label for each word.
