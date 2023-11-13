@@ -18,6 +18,9 @@ dependencies:
   - statsmodels
   - tqdm
   - threadpoolctl=3
+  - xgboost
+  - prophet
+  - patsy
   - pip:
     - ISLP
     - scikit-fda
