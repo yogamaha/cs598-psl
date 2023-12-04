@@ -231,7 +231,6 @@ def process_model(train_file="train.csv", test_file="test.csv", pred_file="mypre
     return
 
 
-"""
 num_folds = 10
 
 for j in tqdm(range(1, num_folds + 1)):
@@ -245,8 +244,7 @@ for j in tqdm(range(1, num_folds + 1)):
 
 
 wae = myeval(num_folds)
-"""
 
-process_model()
+#process_model()
 
 
