@@ -66,7 +66,12 @@ def get_random_movie_set(n=10):
     return movie_set
 
 def get_recommendations():
+    movie_set["star"] = np.array(star_list)
+
+
     reco_movies = movies.sample(n=reco_size)
+    #print(movie_set)
+    #print(star_list)
     return reco_movies
 
 (ratings, movies, users) = load_data()
@@ -114,22 +119,20 @@ with tab1:
 
 
 with tab2:
-	#with st.form("ibcf_form"):
 	movie_set_size = st.slider("Movie Set size:", 1, 100, 10)
 	reco_size = st.slider("Recommendation Set size:", 1, 100, 10)
 	grid_size = st.slider("Display Grid:", 1, 10, 5, key="ibcf_grid_size")
 
-	#st.form_submit_button("Refresh")
-
-	#container1 = st.container(border=True)
 	with st.container(border=True):
 		with st.expander("Step 1: Rate as many movies as possible", expanded=True):
 			st.info("Step 1: Rate as many movies as possible")
 			movie_set = get_random_movie_set(n=movie_set_size)
+			#movie_set["star"] = None
 
 			cols = st.columns(grid_size)
 
 			# Show Movie Set for User Rating
+			star_list =list()
 			(row, _) = movie_set.shape
 			for i in range(row):
 				record = movie_set.iloc[i, :]
@@ -140,16 +143,19 @@ with tab2:
 					image_url = f'https://liangfgithub.github.io/MovieImages/{record["MovieID"]}.jpg'
 					st.image(image_url)
 
-					stars = st_star_rating("Give your rating", maxValue=5, defaultValue=0, key=f"stars_{i}")
-					#st.write(stars)
-
+					star = st_star_rating("Give your rating", maxValue=5, defaultValue=0, key=f"stars_{i}")
+					star_list.append(star)
+					#record["xyz"] = star
+					#st.write(star)
 
 					#st.divider()
 
-	#container2 = st.container(border=True)
 	with st.container(border=True):
 		st.info("Step 2: Discover movies you might like")
 		st.button("Get Recommendations", type="primary")
+
+		#st.dataframe(movie_set)
+		#st.write(movie_set)
 
 		reco_movies = get_recommendations()
 		(row, _) = reco_movies.shape
