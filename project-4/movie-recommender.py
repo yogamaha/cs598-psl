@@ -7,14 +7,14 @@ warnings.filterwarnings('ignore')
 
 @st.cache_data
 def load_data():
-	ratings = pd.read_csv('ratings.dat', sep='::', engine = 'python', header=None)
+	ratings = pd.read_csv('project-4/ratings.dat', sep='::', engine = 'python', header=None)
 	ratings.columns = ['UserID', 'MovieID', 'Rating', 'Timestamp']
 	
-	movies = pd.read_csv('movies.dat', sep='::', engine = 'python',
+	movies = pd.read_csv('project-4/movies.dat', sep='::', engine = 'python',
 	                     encoding="ISO-8859-1", header = None)
 	movies.columns = ['MovieID', 'Title', 'Genres']
 
-	users = pd.read_csv('users.dat', sep='::', engine = 'python', header = None)
+	users = pd.read_csv('project-4/users.dat', sep='::', engine = 'python', header = None)
 	users.columns = ['UserID', 'Gender', 'Age', 'Occupation', 'Zipcode']
 
 	return (ratings, movies, users)
