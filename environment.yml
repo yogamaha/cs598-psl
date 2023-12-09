@@ -21,7 +21,10 @@ dependencies:
   - xgboost
   - prophet
   - patsy
+  - scikit-surprise
+  - streamlit
   - pip:
     - ISLP
     - scikit-fda
     - scikit-misc
+    - streamlit_jupyter
