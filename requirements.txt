@@ -54,3 +54,4 @@ wrapt==1.15.0
 xarray==2023.9.0
 xgboost==1.7.3
 yarl==1.9.2
+st-star-rating==0.0.6

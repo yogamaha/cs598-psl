@@ -22,9 +22,10 @@ dependencies:
   - prophet
   - patsy
   - scikit-surprise
-  - streamlit
+  #- streamlit
   - pip:
     - ISLP
     - scikit-fda
     - scikit-misc
-    - streamlit_jupyter
+    #- streamlit_jupyter
+    - st-star-rating

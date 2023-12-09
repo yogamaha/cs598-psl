@@ -1,20 +1,25 @@
 import numpy as np
 import pandas as pd
 import streamlit as st
+from streamlit_star_rating import st_star_rating
 
 import warnings
 warnings.filterwarnings('ignore')
 
+st.set_page_config(layout="wide")
+
 @st.cache_data
 def load_data():
-	ratings = pd.read_csv('project-4/ratings.dat', sep='::', engine = 'python', header=None)
+	base_folder = "project-4"
+	#base_folder = "."
+	ratings = pd.read_csv(f'{base_folder}/ratings.dat', sep='::', engine = 'python', header=None)
 	ratings.columns = ['UserID', 'MovieID', 'Rating', 'Timestamp']
 	
-	movies = pd.read_csv('project-4/movies.dat', sep='::', engine = 'python',
+	movies = pd.read_csv(f'{base_folder}/movies.dat', sep='::', engine = 'python',
 	                     encoding="ISO-8859-1", header = None)
 	movies.columns = ['MovieID', 'Title', 'Genres']
 
-	users = pd.read_csv('project-4/users.dat', sep='::', engine = 'python', header = None)
+	users = pd.read_csv(f'{base_folder}/users.dat', sep='::', engine = 'python', header = None)
 	users.columns = ['UserID', 'Gender', 'Age', 'Occupation', 'Zipcode']
 
 	return (ratings, movies, users)
@@ -55,16 +60,43 @@ def find_top_movies_by_genre(genre, n=10):
     top_movies = top_movies[0:n]
     return top_movies
 
-def display_movies(movies_df):
-	grid_size = 2
+@st.cache_data
+def get_random_movie_set(n=10):
+    movie_set = movies.sample(n)
+    return movie_set
+
+def get_recommendations():
+    reco_movies = movies.sample(n=reco_size)
+    return reco_movies
+
+(ratings, movies, users) = load_data()
+(genre_movie_ratings) = build_movie_recommendation_model_by_genre()
+
+
+
+st.header("Movie Recommender System")
+tab1, tab2 = st.tabs(["Genre", "Collaborative Filtering"])
+
+with tab1:
+	selected_genre = st.selectbox('Select a Genre', get_all_genre())
+	movie_count = st.slider("Number of Recommendations:", 1, 100, 10)
+
+	grid_size = st.slider("Display Grid:", 1, 10, 5)
+
+	top_movies = find_top_movies_by_genre(genre=selected_genre, n=movie_count)
+
+	#st.dataframe(top_movies)
+	#Display selected Movies
 	cols = st.columns(grid_size)
 
-	(row, _) = movies_df.shape
+	(row, _) = top_movies.shape
 	for i in range(row):
-		record = movies_df.iloc[i, :]
+		record = top_movies.iloc[i, :]
 		with cols[i%grid_size]:
 			title = record['Title']
 			st.subheader(f"{title}")
+
+			st.text(f"Rank: {i+1}")
 
 			weighted_rating =  f"{np.round(record['Weighted_Rating'], 2)} ⭐"
 			st.text(f"Weighted Rating: {weighted_rating}")
@@ -80,24 +112,62 @@ def display_movies(movies_df):
 
 			st.divider()
 
-	return
+
+with tab2:
+	#with st.form("ibcf_form"):
+	movie_set_size = st.slider("Movie Set size:", 1, 100, 10)
+	reco_size = st.slider("Recommendation Set size:", 1, 100, 10)
+	grid_size = st.slider("Display Grid:", 1, 10, 5, key="ibcf_grid_size")
+
+	#st.form_submit_button("Refresh")
+
+	#container1 = st.container(border=True)
+	with st.container(border=True):
+		with st.expander("Step 1: Rate as many movies as possible", expanded=True):
+			st.info("Step 1: Rate as many movies as possible")
+			movie_set = get_random_movie_set(n=movie_set_size)
+
+			cols = st.columns(grid_size)
+
+			# Show Movie Set for User Rating
+			(row, _) = movie_set.shape
+			for i in range(row):
+				record = movie_set.iloc[i, :]
+				with cols[i % grid_size]:
+					title = record['Title']
+					st.subheader(f"{title}")
+
+					image_url = f'https://liangfgithub.github.io/MovieImages/{record["MovieID"]}.jpg'
+					st.image(image_url)
+
+					stars = st_star_rating("Give your rating", maxValue=5, defaultValue=0, key=f"stars_{i}")
+					#st.write(stars)
 
 
-	
+					#st.divider()
+
+	#container2 = st.container(border=True)
+	with st.container(border=True):
+		st.info("Step 2: Discover movies you might like")
+		st.button("Get Recommendations", type="primary")
+
+		reco_movies = get_recommendations()
+		(row, _) = reco_movies.shape
+
+		cols = st.columns(grid_size)
+
+		for i in range(row):
+			record = reco_movies.iloc[i, :]
+			with cols[i%grid_size]:
+				title = record['Title']
+				st.subheader(f"{title}")
+
+				st.text(f"Rank: {i+1}")
+
+				image_url = f'https://liangfgithub.github.io/MovieImages/{record["MovieID"]}.jpg'
+				st.image(image_url)
+
+				#st.divider()		
 
 
-(ratings, movies, users) = load_data()
-(genre_movie_ratings) = build_movie_recommendation_model_by_genre()
-
-
-st.header("Movie Recommender System")
-tab1, tab2 = st.tabs(["Genre", "Collaborative Filtering"])
-
-with tab1:
-	selected_genre = st.selectbox('Select a Genre', get_all_genre())
-	movie_count = st.slider("Number of Recommendations:", 1, 100, 10)
-
-	top_movies = find_top_movies_by_genre(genre=selected_genre, n=movie_count)
-	#st.dataframe(top_movies)
-	display_movies(top_movies)
 
