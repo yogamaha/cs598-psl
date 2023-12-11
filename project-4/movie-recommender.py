@@ -22,7 +22,10 @@ def load_data():
 	users = pd.read_csv(f'{base_folder}/users.dat', sep='::', engine = 'python', header = None)
 	users.columns = ['UserID', 'Gender', 'Age', 'Occupation', 'Zipcode']
 
-	return (ratings, movies, users)
+	#rating_matrix = ratings.pivot_table(index="UserID", columns="MovieID", values="Rating")
+	rating_matrix = pd.read_csv(f'{base_folder}/Rmat.csv', sep=',')
+
+	return (ratings, movies, users, rating_matrix)
 
 @st.cache_data
 def build_movie_recommendation_model_by_genre():
@@ -65,18 +68,91 @@ def get_random_movie_set(n=10):
     movie_set = movies.sample(n)
     return movie_set
 
+@st.cache_data
+def build_similarity_matrix_v2():
+    normalized_rating_matrix = rating_matrix.subtract(rating_matrix.mean(axis=1), axis='rows')
+
+    cardinality_df = (~normalized_rating_matrix.isna()).astype('int')
+    cardinality_df = cardinality_df.T
+    cardinality_matrix = cardinality_df @ cardinality_df.T
+    
+    normalized_rating_matrix = normalized_rating_matrix.T
+    normalized_rating_matrix = normalized_rating_matrix.fillna(0)
+
+    nr = normalized_rating_matrix @ normalized_rating_matrix.T
+    #print(nr)
+
+    squared_normalized_rating_matrix = ((normalized_rating_matrix**2) @ (normalized_rating_matrix!=0).T)
+    squared_normalized_rating_matrix = squared_normalized_rating_matrix.apply(np.vectorize(np.sqrt))
+    dr = squared_normalized_rating_matrix * squared_normalized_rating_matrix.T
+    #print(dr)
+    
+    cosine_distance = nr/dr
+    S = (1 + cosine_distance)/2
+    #print(S)
+    
+    np.fill_diagonal(S.values, np.nan)
+
+    S[cardinality_matrix<3] = None
+    #print(S)
+    
+    #S[S.rank(axis=1, ascending=False)>30] = None
+    #print(S)
+    return S
+
+def myIBCF(S, w, n=10):
+    S = S.copy()
+    S = S.fillna(0)
+
+    w = w.copy()
+    identity = (~w.isna()).astype(int)
+    w = w.fillna(0)
+
+    reco_movies = w.dot(S) / identity.dot(S)
+    reco_movies = reco_movies.sort_values(ascending=False)[0:n]
+    
+    reco_movies = reco_movies.dropna()
+    
+    if reco_movies.size < n:
+        print("Backfilling from Genre based recommendations")        
+        backfill_count = n - reco_movies.size
+        random_genre = np.random.choice(get_all_genre())
+        backfill_df = find_top_movies_by_genre(genre=random_genre, n=backfill_count)
+        
+        backfill_movies = pd.Series(data=backfill_df["Weighted_Rating"].values, 
+                                    index=("m" +backfill_df["MovieID"].astype(str)).values)
+        reco_movies = pd.concat([reco_movies, backfill_movies], axis=0)
+    
+    return reco_movies
+
 def get_recommendations():
     movie_set["star"] = np.array(star_list)
 
+    row = S.iloc[0]
+    user_ratings = row.copy()
+    user_ratings[:] = np.nan
 
-    reco_movies = movies.sample(n=reco_size)
+    for i in range(movie_set.shape[0]):
+    	key = "m" + str(movie_set.iloc[i]["MovieID"])
+    	value = movie_set.iloc[i]["star"]
+    	if key in user_ratings:
+    		user_ratings.loc[key] = value
+
+    #print(user_ratings.dropna())
     #print(movie_set)
     #print(star_list)
+
+    reco_movies = myIBCF(S=S, w=user_ratings, n=reco_size)
+    #print("myIBCF-reco_movies")
+    #print(reco_movies)
+    reco_movies = movies[movies["MovieID"].isin(reco_movies.index.str.slice(1).astype(int))]
+    #reco_movies = movies.sample(n=reco_size)
+
     return reco_movies
 
-(ratings, movies, users) = load_data()
+(ratings, movies, users, rating_matrix) = load_data()
 (genre_movie_ratings) = build_movie_recommendation_model_by_genre()
-
+S = build_similarity_matrix_v2()
 
 
 st.header("Movie Recommender System")
