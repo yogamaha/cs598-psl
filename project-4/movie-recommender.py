@@ -11,7 +11,7 @@ st.set_page_config(layout="wide")
 @st.cache_data
 def load_data():
 	base_folder = "project-4"
-	#base_folder = "."
+	base_folder = "."
 	ratings = pd.read_csv(f'{base_folder}/ratings.dat', sep='::', engine = 'python', header=None)
 	ratings.columns = ['UserID', 'MovieID', 'Rating', 'Timestamp']
 	
